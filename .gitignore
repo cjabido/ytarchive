@@ -41,5 +41,6 @@ archive/
 # Brainstorming session files
 .superpowers/
 
-# Claude Code session files
-.claude/
+# Claude Code session files (exclude project config)
+.claude/*
+!.claude/settings.json
