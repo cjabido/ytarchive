@@ -1,0 +1,53 @@
+services:
+
+  # ── FastAPI backend / REST API ────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - db-data:/data
+    environment:
+      - DB_PATH=/data/youtube_history.db
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost,safari-web-extension://}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/tags')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── React frontend served by Nginx ───────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── MCP server (optional — for Claude Code agent integration) ─────────────
+  # Communicates over stdio; start with: docker compose run --rm mcp
+  mcp:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    environment:
+      - YTARCHIVE_API_URL=http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+    profiles:
+      - mcp
+    stdin_open: true
+    tty: true
+
+volumes:
+  db-data:
+    driver: local
