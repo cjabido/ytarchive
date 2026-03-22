@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ytarchive": {
+      "command": "/Users/cjabido/Documents/dev/claude/youtube history/mcp-server/.venv/bin/python",
+      "args": ["/Users/cjabido/Documents/dev/claude/youtube history/mcp-server/server.py"]
+    }
+  }
+}
