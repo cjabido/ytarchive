@@ -66,5 +66,19 @@ async def _put(path: str, body: dict) -> dict:
     return r.json()
 
 
+@mcp.tool
+async def ytarchive_list_tags() -> str:
+    """Return all available tags with usage counts.
+
+    Returns a JSON list of {id, name, color, video_count} objects.
+    Use the `id` values when calling ytarchive_set_video_tags.
+    """
+    try:
+        tags = await _get("/tags")
+        return str(tags)
+    except RuntimeError as e:
+        return str(e)
+
+
 if __name__ == "__main__":
     mcp.run()
