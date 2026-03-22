@@ -131,5 +131,53 @@ async def ytarchive_get_video_details(video_id: str) -> str:
         return str(e)
 
 
+@mcp.tool
+async def ytarchive_add_watch_history(
+    video_id: str,
+    video_title: str,
+    video_url: str,
+    channel_name: str | None = None,
+    channel_url: str | None = None,
+    watched_at: str | None = None,
+    fetch_transcript: bool = False,
+) -> str:
+    """Add a video watch entry to the database.
+
+    Upserts the video record and appends a watch timestamp. Safe to call multiple
+    times for the same video — each call adds a new watch entry.
+
+    Args:
+        video_id: YouTube video ID (e.g. 'dQw4w9WgXcQ').
+        video_title: Video title.
+        video_url: Full YouTube URL.
+        channel_name: Channel display name (optional).
+        channel_url: Channel URL (optional).
+        watched_at: ISO 8601 timestamp (optional, defaults to now).
+        fetch_transcript: Queue a background transcript fetch (default False).
+            Transcript will NOT be available immediately — check
+            ytarchive_get_video_details later to confirm it arrived.
+
+    Returns confirmation with video_id and watch timestamp.
+    """
+    body: dict = {
+        "video_id": video_id,
+        "video_title": video_title,
+        "video_url": video_url,
+        "fetch_transcript": fetch_transcript,
+    }
+    if channel_name is not None:
+        body["channel_name"] = channel_name
+    if channel_url is not None:
+        body["channel_url"] = channel_url
+    if watched_at is not None:
+        body["watched_at"] = watched_at
+
+    try:
+        data = await _post("/videos", body)
+        return f"Watch entry added. video_id={data.get('video_id')} watched_at={data.get('watched_at', 'recorded')}"
+    except RuntimeError as e:
+        return str(e)
+
+
 if __name__ == "__main__":
     mcp.run()
