@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+backend/venv/
+backend/.env
+*.egg-info/
+dist/
+build/
+
+# Databases — keep schema/migrations but not live data
+*.db
+*.db-shm
+*.db-wal
+*.db-*
+*.db.*
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Xcode / Swift build artifacts
+YTArchive/
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Archives / exports
+archive/
+
+# Brainstorming session files
+.superpowers/
+
+# Claude Code session files
+.claude/

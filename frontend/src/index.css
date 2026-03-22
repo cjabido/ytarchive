@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-surface-0: #f4f4f7;
+  --color-surface-1: #ffffff;
+  --color-surface-2: #eeeef2;
+  --color-surface-3: #e4e4ea;
+  --color-surface-4: #d8d8e0;
+
+  /* Borders */
+  --color-border-dim: #e2e2ea;
+  --color-border-default: #d0d0da;
+  --color-border-bright: #b8b8c8;
+
+  /* Text */
+  --color-text-primary: #1a1a2e;
+  --color-text-secondary: #5a5a72;
+  --color-text-muted: #8a8aa0;
+
+  /* Accents */
+  --color-accent-mint: #10b981;
+  --color-accent-mint-dim: rgba(16, 185, 129, 0.10);
+  --color-accent-rose: #e84393;
+  --color-accent-rose-dim: rgba(232, 67, 147, 0.10);
+  --color-accent-amber: #f59e0b;
+  --color-accent-amber-dim: rgba(245, 158, 11, 0.10);
+  --color-accent-sky: #0284c7;
+  --color-accent-sky-dim: rgba(2, 132, 199, 0.08);
+  --color-accent-violet: #7c3aed;
+  --color-accent-violet-dim: rgba(124, 58, 237, 0.08);
+
+  /* Typography */
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Base */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--color-surface-0);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-surface-4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-border-bright); }
+
+/* Animations */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out both;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
