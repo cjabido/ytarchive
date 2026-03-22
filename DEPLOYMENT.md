@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Instructions for every deployment scenario: local development, single-machine production, and multi-device access over Tailscale.
+Instructions for every deployment scenario: local development, Docker Compose, single-machine production, and multi-device access over Tailscale.
 
 ---
 
@@ -9,8 +9,10 @@ Instructions for every deployment scenario: local development, single-machine pr
 | Tool | Minimum version | Purpose |
 |------|----------------|---------|
 | Python | 3.11+ | Backend and scripts |
-| Node.js | 18+ | Frontend build |
-| npm | 9+ | Frontend dependencies |
+| Node.js | 18+ | Frontend build (local dev only) |
+| npm | 9+ | Frontend dependencies (local dev only) |
+| Docker | 24+ | Docker Compose deployment |
+| Docker Compose | 2.20+ | Docker Compose deployment |
 | Xcode | Latest | Safari extension build (macOS only) |
 | Git | Any | Clone the repo |
 
@@ -37,7 +39,104 @@ python3 scripts/import_to_db.py cleaned.html
 
 ---
 
-## 2. Local Development
+## 2. Docker Compose (Recommended)
+
+The fastest way to get everything running. Docker builds the frontend, starts the API, and serves the web interface — no local Python or Node installation required.
+
+### Start all services
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---------|-----|
+| Web interface | `http://localhost:3000` |
+| API + Swagger docs | `http://localhost:8000/docs` |
+
+### Stop
+
+```bash
+docker compose down
+```
+
+### Configuration
+
+Copy `.env.example` to `.env` and edit as needed before starting:
+
+```bash
+cp .env.example .env
+```
+
+```env
+# Port the API is exposed on (default: 8000)
+API_PORT=8000
+
+# Port the frontend is exposed on (default: 3000)
+FRONTEND_PORT=3000
+
+# CORS origins allowed by the backend
+CORS_ORIGINS=http://localhost:3000,http://localhost,safari-web-extension://
+```
+
+### Database persistence
+
+The SQLite database is stored in a Docker named volume (`db-data`) and persists across `docker compose down` / `up` cycles. To see where Docker stores it:
+
+```bash
+docker volume inspect ytarchive_db-data
+```
+
+### Importing watch history into the Docker database
+
+The import scripts run against a local file path. The simplest approach is to run the scripts before starting Docker (they create `youtube_history.db` in the project root), then copy the file into the volume on first start.
+
+Alternatively, copy an existing database into the running container:
+
+```bash
+# Copy a local database file into the named volume
+docker compose cp youtube_history.db api:/data/youtube_history.db
+```
+
+Or run the import scripts directly inside the container:
+
+```bash
+# Copy your cleaned export into the container then run the import
+docker compose cp cleaned.html api:/tmp/cleaned.html
+docker compose exec api python3 -c "
+import sys; sys.path.insert(0, '/app')
+"
+# The import scripts live in /scripts — run from outside the container
+# against the volume-mounted database path is easier:
+docker run --rm \
+  -v ytarchive_db-data:/data \
+  -v "$(pwd)/scripts":/scripts \
+  -v "$(pwd)/cleaned.html":/tmp/cleaned.html \
+  python:3.11-slim \
+  python /scripts/import_to_db.py /tmp/cleaned.html --db /data/youtube_history.db
+```
+
+### MCP Server with Docker (optional)
+
+The MCP server communicates over stdio and is not started by default. To run it interactively:
+
+```bash
+docker compose run --rm mcp
+```
+
+For Claude Code integration, it is simpler to run the MCP server directly (see [section 7](#7-mcp-server)) rather than through Docker, since Claude Code manages the subprocess itself.
+
+### Rebuild after code changes
+
+```bash
+docker compose up --build
+```
+
+Only changed layers are rebuilt — subsequent builds are fast.
+
+---
+
+## 3. Local Development
 
 Run backend and frontend as separate processes. The Vite dev server proxies API calls to the backend.
 
@@ -92,11 +191,11 @@ Or let Claude Code manage the process via `.claude/settings.json` (see [CONFIGUR
 
 ### Safari Extension (optional)
 
-See section 5 below.
+See section 6 below.
 
 ---
 
-## 3. Single-Machine Production
+## 4. Single-Machine Production
 
 Build the frontend once and serve everything from a single FastAPI process.
 
@@ -206,7 +305,7 @@ launchctl unload ~/Library/LaunchAgents/com.ytarchive.backend.plist
 
 ---
 
-## 4. Multi-Device Access (Tailscale)
+## 5. Multi-Device Access (Tailscale)
 
 Access your archive from any device on your Tailscale network — iPhone, iPad, another Mac, etc.
 
@@ -226,7 +325,23 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 CORS_ORIGINS=http://localhost:3000,http://100.64.0.2:8000
 ```
 
-### On other devices
+### With Docker Compose
+
+Update your `.env` file in the project root:
+
+```env
+CORS_ORIGINS=http://localhost:3000,http://localhost,http://100.64.0.2:3000,safari-web-extension://
+```
+
+Then restart:
+
+```bash
+docker compose up --build
+```
+
+Open `http://100.64.0.2:3000` on any device on your Tailscale network.
+
+### On other devices (non-Docker)
 
 Open `http://100.64.0.2:8000` in any browser on your Tailscale network.
 
@@ -240,11 +355,11 @@ const CONFIG = {
 };
 ```
 
-Then rebuild the extension (see section 5).
+Then rebuild the extension (see section 6).
 
 ---
 
-## 5. Safari Extension
+## 6. Safari Extension
 
 ### Build and install (one-time)
 
@@ -295,7 +410,7 @@ Edit `safari-extension/config.js`, then reload the extension (toggle off/on in S
 
 ---
 
-## 6. MCP Server
+## 7. MCP Server
 
 ### Setup
 
@@ -338,7 +453,7 @@ Backend unavailable at localhost:8000 — ensure the FastAPI server is running.
 
 ---
 
-## 7. Scheduled Imports
+## 8. Scheduled Imports
 
 To keep your archive up to date automatically, schedule periodic Takeout imports.
 
@@ -368,7 +483,7 @@ See [LONG_TERM_TRACKING.md](LONG_TERM_TRACKING.md) for a detailed guide includin
 
 ---
 
-## 8. Database Backup
+## 9. Database Backup
 
 The entire archive is a single SQLite file. Back it up with any file copy.
 
@@ -385,18 +500,32 @@ sqlite3 youtube_history.db ".backup 'youtube_history_$(date +%Y%m%d).db'"
 
 The WAL journal mode (`PRAGMA journal_mode=WAL`) makes hot backups safe — you can copy the database while the backend is running.
 
+### Backing up the Docker volume
+
+When running via Docker Compose, the database lives in the `ytarchive_db-data` named volume. Back it up by copying it out:
+
+```bash
+# Copy database from the volume to the current directory
+docker compose cp api:/data/youtube_history.db ./youtube_history.backup.db
+
+# Or with a timestamp
+docker compose cp api:/data/youtube_history.db \
+  "./youtube_history_$(date +%Y%m%d).db"
+```
+
 ### What to back up
 
 | File | Important? | Notes |
 |------|-----------|-------|
-| `youtube_history.db` | Yes | Your entire archive |
-| `backend/.env` | Yes | Configuration |
+| `youtube_history.db` | Yes | Your entire archive (or copy from Docker volume) |
+| `backend/.env` | Yes | Configuration (local dev) |
+| `.env` | Yes | Configuration (Docker Compose) |
 | `safari-extension/config.js` | Yes if customized | API URL |
 | `.claude/settings.json` | Yes | MCP registration |
 
 ---
 
-## 9. Upgrading
+## 10. Upgrading
 
 ### Pull latest code
 
@@ -404,7 +533,16 @@ The WAL journal mode (`PRAGMA journal_mode=WAL`) makes hot backups safe — you 
 git pull origin main
 ```
 
-### Update Python dependencies
+### Docker Compose upgrade
+
+```bash
+git pull origin main
+docker compose up --build
+```
+
+Docker rebuilds only changed layers. The database volume is untouched.
+
+### Update Python dependencies (local dev)
 
 ```bash
 cd backend
@@ -416,7 +554,7 @@ source venv/bin/activate
 pip install -r requirements.txt --upgrade
 ```
 
-### Update Node dependencies
+### Update Node dependencies (local dev)
 
 ```bash
 cd frontend
@@ -442,7 +580,59 @@ xcrun safari-web-extension-converter safari-extension/ \
 
 ---
 
-## 10. Troubleshooting
+## 11. Troubleshooting
+
+### Docker Compose issues
+
+**Services won't start:**
+
+```bash
+# Check logs for all services
+docker compose logs
+
+# Check logs for a specific service
+docker compose logs api
+docker compose logs frontend
+```
+
+**Port already in use:**
+
+Change the port in `.env`:
+
+```env
+API_PORT=8001
+FRONTEND_PORT=3001
+```
+
+Then restart: `docker compose up`.
+
+**Frontend can't reach the API:**
+
+The frontend nginx config proxies `/api/` to the `api` service by name. If you see network errors in the browser console, confirm the `api` container is healthy:
+
+```bash
+docker compose ps
+```
+
+The `api` service uses a health check — `frontend` waits for it to pass before starting.
+
+**Database is empty after restart:**
+
+Confirm the volume exists and is mounted:
+
+```bash
+docker volume ls | grep ytarchive
+docker compose exec api ls /data
+```
+
+If the volume was deleted, recreate it and re-import your data (see section 2).
+
+**Rebuild a single service:**
+
+```bash
+docker compose up --build api
+docker compose up --build frontend
+```
 
 ### Backend won't start
 
@@ -463,7 +653,7 @@ uvicorn main:app --reload --port 8000 --log-level debug
 ### Frontend shows no data / CORS errors
 
 1. Confirm the backend is running: `curl http://localhost:8000/api/stats`
-2. Check `CORS_ORIGINS` in `backend/.env` includes your frontend origin
+2. Check `CORS_ORIGINS` in `backend/.env` (local) or `.env` (Docker) includes your frontend origin
 3. In dev mode, verify Vite proxy in `frontend/vite.config.js` points to the correct backend port
 
 ### Safari extension shows "Server unavailable"
