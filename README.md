@@ -1,160 +1,370 @@
-# YouTube Watch History Cleaner
+# YTArchive
 
-Python scripts to clean up YouTube watch history exports from Google Takeout by removing CSS bloat and extracting semantic information.
+A personal YouTube watch history management system. Import your Google Takeout export, browse and search 194k+ videos, tag and organize your watch history, capture new videos directly from Safari, and query everything with Claude Code agents.
+
+## What's Included
+
+| Component | Description |
+|-----------|-------------|
+| **Scripts** | Python utilities to clean Takeout exports and import them into SQLite |
+| **Backend API** | FastAPI server exposing a REST API over your watch history database |
+| **Web Interface** | React SPA for searching, tagging, watchlist management, and analytics |
+| **Safari Extension** | Browser extension to capture videos and tag them without leaving YouTube |
+| **MCP Server** | Model Context Protocol server exposing archive tools to Claude Code agents |
+
+## Architecture
+
+```
+Safari Extension          React Web UI           Claude Code Agent
+      │                       │                         │
+      └───────────────────────┴─────────────────────────┘
+                              │
+                    FastAPI backend :8000
+                     /api/videos
+                     /api/tags
+                     /api/watchlist
+                     /api/transcripts
+                     /api/stats
+                              │
+                    SQLite database
+                    youtube_history.db
+```
+
+## Quick Start
+
+### 1. Import your watch history
+
+Get your YouTube history from [Google Takeout](https://takeout.google.com) (select "YouTube and YouTube Music" → "watch-history.html").
+
+```bash
+# Remove CSS bloat from the export
+python3 scripts/clean_youtube_history.py watch-history.html -o cleaned.html
+
+# Import into SQLite
+python3 scripts/import_to_db.py cleaned.html
+```
+
+### 2. Start the backend
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+The API is now available at `http://localhost:8000`. API docs at `http://localhost:8000/docs`.
+
+### 3. Start the web interface (development)
+
+```bash
+cd frontend
+npm install
+npm run dev        # runs on http://localhost:3000
+```
+
+### 4. Or build for production (single process)
+
+```bash
+cd frontend
+npm install
+npm run build      # outputs to backend/static/
+
+cd ../backend
+uvicorn main:app --port 8000   # serves both API and UI
+```
+
+Open `http://localhost:8000` in your browser.
+
+---
 
 ## Scripts
 
-1. **`clean_youtube_history.py`** - Simple script that extracts videos only
-2. **`extract_all_types.py`** - Advanced script that separates videos, posts, and channels
+Five standalone Python utilities in `scripts/`. No backend required.
 
-## Problem
+### `clean_youtube_history.py`
 
-Google's YouTube watch history export includes a massive inline CSS blob (Material Design Lite) that makes the file:
-- Extremely large (megabytes of CSS for simple history data)
-- Hard to parse for AI/LLM tools
-- Difficult to work with programmatically
-
-## Solution
-
-This script extracts only the semantic information:
-- Video title and URL
-- Channel name and URL
-- Watch timestamp
-
-The output is clean, readable HTML with minimal styling.
-
-## Usage
-
-### Script 1: clean_youtube_history.py (Simple - Videos Only)
-
-Extract just the watched videos:
+Strips the 500KB Material Design Lite CSS blob from a Takeout export, leaving clean readable HTML.
 
 ```bash
-# Output to file
-python3 clean_youtube_history.py watch-history.html -o cleaned-history.html
-
-# Output to stdout
-python3 clean_youtube_history.py watch-history.html
-
-# View help
-python3 clean_youtube_history.py --help
+python3 scripts/clean_youtube_history.py watch-history.html -o cleaned.html
+python3 scripts/clean_youtube_history.py watch-history.html   # stdout
+python3 scripts/clean_youtube_history.py --help
 ```
 
-### Script 2: extract_all_types.py (Advanced - Separate by Type)
+**Input:** 66MB HTML with embedded CSS → **Output:** 26MB clean HTML (60% reduction)
 
-Extract videos, community posts, and channel statistics into separate files:
+### `extract_all_types.py`
+
+Advanced extraction that separates videos, community posts, and channel statistics into distinct files.
 
 ```bash
-# Extract all types (videos, posts, channels)
-python3 extract_all_types.py watch-history.html --all
+# Extract everything
+python3 scripts/extract_all_types.py watch-history.html --all
 
-# Extract only specific types
-python3 extract_all_types.py watch-history.html --videos
-python3 extract_all_types.py watch-history.html --posts
-python3 extract_all_types.py watch-history.html --channels
+# Extract specific types
+python3 scripts/extract_all_types.py watch-history.html --videos
+python3 scripts/extract_all_types.py watch-history.html --posts
+python3 scripts/extract_all_types.py watch-history.html --channels
 
-# Custom output file names
-python3 extract_all_types.py watch-history.html --videos my-videos.html --posts my-posts.html
+# Custom output filenames
+python3 scripts/extract_all_types.py watch-history.html \
+  --videos my-videos.html \
+  --posts my-posts.html
 
-# View help
-python3 extract_all_types.py --help
+python3 scripts/extract_all_types.py --help
 ```
+
+**Output files:**
+- `watch-history-videos.html` — all watched videos with title, channel, timestamp
+- `watch-history-posts.html` — community posts viewed
+- `watch-history-channels.html` — unique channels sorted by interaction count
+
+### `import_to_db.py`
+
+Parses a cleaned HTML export and inserts records into SQLite. Idempotent — safe to run repeatedly with overlapping exports.
+
+```bash
+# Import using default DB path (youtube_history.db in project root)
+python3 scripts/import_to_db.py cleaned.html
+
+# Specify database path
+python3 scripts/import_to_db.py cleaned.html --db /path/to/my.db
+
+python3 scripts/import_to_db.py --help
+```
+
+Deduplicates on `(video_id, watched_at)`. Upserts channel records with `first_seen`/`last_seen` tracking.
+
+### `query_db.py`
+
+CLI for querying the database without writing SQL.
+
+```bash
+python3 scripts/query_db.py stats                    # database overview
+python3 scripts/query_db.py top                      # top 20 channels
+python3 scripts/query_db.py recent                   # last 7 days
+python3 scripts/query_db.py search "machine learning" # title search
+python3 scripts/query_db.py channel "3Blue1Brown"    # channel timeline
+python3 scripts/query_db.py export output.csv        # CSV export
+
+python3 scripts/query_db.py --help
+```
+
+### `fetch_transcripts.py`
+
+Background script to bulk-fetch transcripts for videos already in the database.
+
+```bash
+python3 scripts/fetch_transcripts.py
+python3 scripts/fetch_transcripts.py --db /path/to/my.db
+```
+
+Stores transcripts with language codes. Handles API errors gracefully. The backend API can also trigger individual transcript fetches on demand.
+
+---
+
+## Web Interface
+
+The React SPA runs at `http://localhost:3000` (dev) or `http://localhost:8000` (production).
+
+### Pages
+
+**Library** — Browse and search your entire watch history.
+- Full-text search by title
+- Filter by tag, channel, date range, or watchlist status
+- Sort by last watched, watch count, or title
+- Click any video to open a detail panel with full metadata, watch history, notes, and transcript
+
+**Watchlist** — Kanban-style board organized by status.
+- Statuses: `to-rewatch`, `reference`, `to-download`, `in-progress`, `done`
+- Drag cards between columns to change status
+- Set priority and add personal notes per video
+
+**Stats** — Analytics dashboard.
+- Top channels by watch count
+- Viewing patterns by hour of day
+- Tag distribution
+- Watchlist status breakdown
+
+### Tags
+
+Tags are user-defined labels with custom hex colors. Five defaults are pre-loaded:
+
+| Tag | Color |
+|-----|-------|
+| `reference` | Blue `#3b82f6` |
+| `to-rewatch` | Amber `#f59e0b` |
+| `to-download` | Green `#10b981` |
+| `learning` | Purple `#8b5cf6` |
+| `favorite` | Red `#ef4444` |
+
+Create additional tags at any time. Tags apply to all watches of a video (not per-watch).
+
+---
+
+## Safari Extension
+
+Capture and tag videos directly from YouTube without switching windows.
+
+### What it does
+
+- Shows a green badge on the extension icon when you're on a YouTube video page
+- Opens a popup showing the current video's title, channel, and archive status
+- Lets you add tags, set watchlist status, and write notes before saving
+- Queues saves offline if the backend is unreachable and retries on next use
+
+### Setup (one-time)
+
+Prerequisites: Xcode installed, backend running.
+
+```bash
+# From the project root:
+xcrun safari-web-extension-converter safari-extension/ \
+  --project-location . \
+  --app-name YTArchive \
+  --macos-only
+```
+
+1. Open `YTArchive/YTArchive.xcodeproj` in Xcode
+2. Press **Cmd+R** to build and run
+3. In Safari: **Settings → Extensions → YTArchive** → enable
+4. Click the extension icon on any YouTube page and grant permission for `youtube.com`
+
+### Reloading after changes
+
+- **JS / HTML / CSS changes:** Toggle the extension off then on in Safari Settings → Extensions
+- **`manifest.json` or new files:** Re-run `xcrun safari-web-extension-converter` and rebuild in Xcode
+
+### Remote access via Tailscale
+
+To use the extension from another device on your Tailscale network, edit `safari-extension/config.js`:
+
+```js
+const CONFIG = {
+  API_BASE_URL: 'http://100.x.x.x:8000'  // your Mac's Tailscale IP
+};
+```
+
+Then toggle the extension off/on to pick up the change.
+
+---
+
+## MCP Server
+
+Exposes YTArchive as tools for Claude Code agents via the Model Context Protocol (stdio transport).
+
+### Available tools
+
+| Tool | Description |
+|------|-------------|
+| `ytarchive_list_tags` | List all tags with video counts |
+| `ytarchive_list_videos` | Search/filter videos with pagination |
+| `ytarchive_get_video_details` | Full video record including transcript |
+| `ytarchive_add_watch_history` | Add a video to the archive |
+| `ytarchive_set_video_tags` | Replace tags on a video (max 5) |
+
+### Setup
+
+```bash
+cd mcp-server
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Register with Claude Code in `.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "ytarchive": {
+      "command": "/home/user/ytarchive/mcp-server/venv/bin/python",
+      "args": ["/home/user/ytarchive/mcp-server/server.py"]
+    }
+  }
+}
+```
+
+The MCP server requires the FastAPI backend to be running at `http://localhost:8000`.
+
+### Example agent workflow
+
+```
+1. ytarchive_list_tags()              → get tag IDs
+2. ytarchive_list_videos(q="python")  → find untagged videos
+3. ytarchive_get_video_details(id)    → read transcript for context
+4. ytarchive_set_video_tags(id, [3])  → apply "learning" tag
+```
+
+---
+
+## Database
+
+Single SQLite file: `youtube_history.db` (default location: project root).
+
+### Tables
+
+| Table | Purpose |
+|-------|---------|
+| `videos` | Watch history — title, URL, channel, timestamps |
+| `channels` | Channel metadata — name, URL, first/last seen |
+| `posts` | Community posts viewed |
+| `transcripts` | Cached video transcripts with language codes |
+| `tags` | User-defined labels with hex colors |
+| `video_tags` | Many-to-many: videos ↔ tags |
+| `watchlist` | Per-video status, priority, and notes |
+| `video_notes` | Long-form personal notes per video |
+
+New tables (`tags`, `video_tags`, `watchlist`, `video_notes`, `transcripts`) are created automatically on first backend startup.
+
+See [SCHEMA.md](SCHEMA.md) for full DDL and example queries.
+
+---
+
+## REST API
+
+Full API reference at [API.md](API.md). Interactive docs at `http://localhost:8000/docs` when the backend is running.
+
+**Base URL:** `http://localhost:8000/api`
+
+| Prefix | Purpose |
+|--------|---------|
+| `/videos` | Search, detail, add, tag, notes |
+| `/tags` | Create, list, update, delete tags |
+| `/watchlist` | Manage watchlist status and notes |
+| `/transcripts` | Fetch, retrieve, export as Obsidian Markdown |
+| `/stats` | Aggregate analytics |
+
+---
 
 ## Requirements
 
-- Python 3.6+
-- No external dependencies (uses only standard library)
+**Scripts:** Python 3.6+, no external dependencies
 
-## Examples
+**Backend:**
+- Python 3.11+
+- fastapi, uvicorn, aiosqlite, pydantic, python-dotenv, youtube-transcript-api
 
-### Example 1: Simple Cleaning (Videos Only)
+**Frontend:**
+- Node.js 18+
+- React 18, Vite, TailwindCSS 4, React Query 5
 
-**Input:** 66MB HTML file with embedded CSS
-**Output:** 26MB clean HTML (60% reduction)
-**Result:** Single file with 66,076 video entries
+**Safari Extension:**
+- macOS with Xcode installed
+- Safari 14+
 
-### Example 2: Full Extraction (All Types)
+**MCP Server:**
+- Python 3.11+
+- fastmcp, httpx
 
-**Input:** 66MB HTML file (watch-history.html)
-**Output:**
-- `watch-history-videos.html` (26MB) - 66,076 videos
-- `watch-history-posts.html` (402KB) - 612 community posts
-- `watch-history-channels.html` (5.4MB) - 13,878 unique channels with stats
+---
 
-**Before:**
-```html
-<style>/* 500KB of minified CSS */</style>
-<div class="mdl-grid"><div class="outer-cell mdl-cell mdl-cell--12-col mdl-shadow--2dp">
-  <div class="mdl-grid"><div class="header-cell mdl-cell mdl-cell--12-col">
-    <p class="mdl-typography--title">YouTube<br></p></div>
-    <div class="content-cell mdl-cell mdl-cell--6-col mdl-typography--body-1">
-      Watched <a href="...">Video Title</a><br>
-      <a href="...">Channel Name</a><br>
-      Jan 10, 2026, 12:28:55 AM EST<br>
-    </div>
-    ...
-```
+## Further Reading
 
-**After:**
-```html
-<div class="video-entry">
-  <div class="video-title">
-    <a href="https://www.youtube.com/watch?v=...">Video Title</a>
-  </div>
-  <div class="channel-name">
-    Channel: <a href="https://www.youtube.com/channel/...">Channel Name</a>
-  </div>
-  <div class="timestamp">
-    Jan 10, 2026, 12:28:55 AM EST
-  </div>
-</div>
-```
-
-## Features
-
-### clean_youtube_history.py
-- Removes all Material Design Lite CSS bloat
-- Strips unnecessary div classes and styling
-- Preserves all semantic information (video title, channel, timestamp)
-- Simple single-file output
-
-### extract_all_types.py (All features above, plus:)
-- Separates videos, posts, and channels into distinct files
-- **Videos**: All watched videos with titles, channels, and timestamps
-- **Posts**: Community posts viewed with titles, channels, and timestamps
-- **Channels**: Comprehensive channel statistics including:
-  - Total number of interactions (videos watched + posts viewed from that channel)
-  - First and last interaction timestamps
-  - Sorted by interaction count (most watched channels first)
-- Handles both `/channel/` and `/@username` URL formats
-- Properly escapes HTML entities
-- Works with files of any size (tested with 66K+ video entries)
-
-## How It Works
-
-### clean_youtube_history.py
-1. Uses regex to extract video entry blocks from the HTML
-2. Parses each entry to extract:
-   - Video URL and title
-   - Channel URL and name
-   - Timestamp
-3. Generates clean HTML with minimal CSS for readability
-4. Outputs to file or stdout
-
-### extract_all_types.py
-1. Uses regex to extract all entry blocks from the HTML
-2. Identifies entry type by action verb:
-   - "Watched" → Video entry
-   - "Viewed" → Post entry
-3. Extracts all channel references throughout the file
-4. Aggregates channel statistics (count, first/last seen)
-5. Generates three separate HTML files:
-   - Videos with all metadata
-   - Posts with all metadata
-   - Channels sorted by interaction frequency
-
-## Notes
-
-- Some older entries may not have channel information (deleted/private videos)
-- The script handles non-breaking spaces and other HTML entities correctly
-- Progress information is printed to stderr, so you can redirect stdout separately
+- [CONFIGURATION.md](CONFIGURATION.md) — all configuration options for every component
+- [DEPLOYMENT.md](DEPLOYMENT.md) — single-machine, multi-device, and production deployment
+- [API.md](API.md) — full REST API reference
+- [SCHEMA.md](SCHEMA.md) — database schema and example queries
+- [LONG_TERM_TRACKING.md](LONG_TERM_TRACKING.md) — scheduled imports and long-term maintenance
