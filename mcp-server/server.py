@@ -112,5 +112,24 @@ async def ytarchive_list_videos(
         return str(e)
 
 
+@mcp.tool
+async def ytarchive_get_video_details(video_id: str) -> str:
+    """Get full details for a specific video.
+
+    Args:
+        video_id: YouTube video ID (e.g. 'dQw4w9WgXcQ').
+
+    Returns the full video record including watch history, tags, watchlist status,
+    notes, and transcript. The `transcript` field is null if no transcript is stored,
+    otherwise {text, language, fetched_at}. Use transcript.text (truncated as needed)
+    when making auto-categorization decisions.
+    """
+    try:
+        data = await _get(f"/videos/{video_id}")
+        return str(data)
+    except RuntimeError as e:
+        return str(e)
+
+
 if __name__ == "__main__":
     mcp.run()
