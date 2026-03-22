@@ -80,5 +80,37 @@ async def ytarchive_list_tags() -> str:
         return str(e)
 
 
+@mcp.tool
+async def ytarchive_list_videos(
+    q: str | None = None,
+    channel: str | None = None,
+    tag: str | None = None,
+    sort: str | None = None,
+    page: int | None = None,
+    per_page: int | None = None,
+) -> str:
+    """Search and browse the video library.
+
+    Args:
+        q: Filter by video title (substring match).
+        channel: Filter by channel name (substring match).
+        tag: Filter by tag name (exact match).
+        sort: Sort order — 'last_watched' (default), 'watch_count', or 'title'.
+        page: Page number (default 1).
+        per_page: Results per page (default 50, max 200).
+
+    Returns JSON: {total, page, per_page, videos: [{video_id, video_title,
+    channel_name, last_watched, watch_count, tags}]}
+    """
+    try:
+        data = await _get(
+            "/videos",
+            q=q, channel=channel, tag=tag, sort=sort, page=page, per_page=per_page,
+        )
+        return str(data)
+    except RuntimeError as e:
+        return str(e)
+
+
 if __name__ == "__main__":
     mcp.run()
