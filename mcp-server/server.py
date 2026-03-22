@@ -179,5 +179,28 @@ async def ytarchive_add_watch_history(
         return str(e)
 
 
+@mcp.tool
+async def ytarchive_set_video_tags(video_id: str, tag_ids: list[int]) -> str:
+    """Replace the tag set on a video with a new list of tag IDs.
+
+    Args:
+        video_id: YouTube video ID.
+        tag_ids: List of tag IDs from ytarchive_list_tags. Maximum 5.
+            This limit is enforced here to keep auto-categorization focused.
+            Call ytarchive_list_tags first to resolve tag names to IDs.
+
+    Returns confirmation with the applied tag names.
+    """
+    if len(tag_ids) > 5:
+        return f"Error: maximum 5 tags allowed (got {len(tag_ids)}). This limit keeps auto-categorization focused."
+
+    try:
+        data = await _put(f"/videos/{video_id}/tags", {"tag_ids": tag_ids})
+        applied = [t["name"] for t in data.get("tags", [])]
+        return f"Tags applied to {video_id}: {', '.join(applied) if applied else '(none)'}"
+    except RuntimeError as e:
+        return str(e)
+
+
 if __name__ == "__main__":
     mcp.run()
