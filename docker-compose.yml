@@ -6,12 +6,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${API_PORT:-8001}:8000"
     volumes:
       - db-data:/data
     environment:
       - DB_PATH=/data/youtube_history.db
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost,safari-web-extension://}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3001,http://localhost,safari-web-extension://}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/tags')"]
@@ -26,7 +26,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "${FRONTEND_PORT:-3000}:80"
+      - "${FRONTEND_PORT:-3001}:80"
     depends_on:
       api:
         condition: service_healthy
