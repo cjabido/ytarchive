@@ -8,7 +8,7 @@ services:
     ports:
       - "${API_PORT:-8001}:8000"
     volumes:
-      - db-data:/data
+      - ./data:/data
     environment:
       - DB_PATH=/data/youtube_history.db
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3001,http://localhost,safari-web-extension://}
@@ -34,20 +34,17 @@ services:
 
   # ── MCP server (optional — for Claude Code agent integration) ─────────────
   # Communicates over stdio; start with: docker compose run --rm mcp
-  mcp:
-    build:
-      context: ./mcp-server
-      dockerfile: Dockerfile
-    environment:
-      - YTARCHIVE_API_URL=http://api:8000
-    depends_on:
-      api:
-        condition: service_healthy
-    profiles:
-      - mcp
-    stdin_open: true
-    tty: true
+  # mcp:
+  #   build:
+  #     context: ./mcp-server
+  #     dockerfile: Dockerfile
+  #   environment:
+  #     - YTARCHIVE_API_URL=http://api:8000
+  #   depends_on:
+  #     api:
+  #       condition: service_healthy
+  #   profiles:
+  #     - mcp
+  #   stdin_open: true
+  #   tty: true
 
-volumes:
-  db-data:
-    driver: local
