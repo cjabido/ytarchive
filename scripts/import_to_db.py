@@ -223,7 +223,9 @@ def import_to_database(conn, videos, posts, channels, verbose=False):
             cursor.execute('''
                 INSERT INTO videos (video_id, video_url, video_title, channel_id, watched_at)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(video_id, watched_at) DO NOTHING
+                ON CONFLICT(video_id, watched_at) DO UPDATE SET
+                    channel_id = COALESCE(videos.channel_id, excluded.channel_id),
+                    video_title = COALESCE(excluded.video_title, videos.video_title)
             ''', (video['video_id'], video['video_url'], video['video_title'],
                   video['channel_id'], video['watched_at']))
 
