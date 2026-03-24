@@ -67,6 +67,23 @@ async def _put(path: str, body: dict) -> dict:
 
 
 @mcp.tool
+async def ytarchive_create_tag(name: str, color: str = "#6366f1") -> str:
+    """Create a new tag for categorizing videos.
+
+    Args:
+        name: Tag name (must be unique).
+        color: Hex color code (default '#6366f1' / indigo).
+
+    Returns confirmation with the new tag's id and name.
+    """
+    try:
+        data = await _post("/tags", {"name": name, "color": color})
+        return f"Tag created: id={data['id']} name={data['name']} color={data['color']}"
+    except RuntimeError as e:
+        return str(e)
+
+
+@mcp.tool
 async def ytarchive_list_tags() -> str:
     """Return all available tags with usage counts.
 
