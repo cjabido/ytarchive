@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, BookOpen, ChevronLeft, ChevronRight, Eye, RefreshCw, FileText } from 'lucide-react'
+import { Search, BookOpen, ChevronLeft, ChevronRight, Eye, RefreshCw, FileText, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fetchVideos, fetchTags } from '../api.js'
 import TagBadge from '../components/TagBadge.jsx'
@@ -37,12 +37,13 @@ export default function Library() {
   const [sort, setSort] = useState('last_watched')
   const [page, setPage] = useState(1)
   const [selectedVideoId, setSelectedVideoId] = useState(null)
+  const [filterChannel, setFilterChannel] = useState('')
 
   const { data: tags = [] } = useQuery({ queryKey: ['tags'], queryFn: fetchTags })
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['videos', debouncedQ, filterTag, filterStatus, sort, page],
-    queryFn: () => fetchVideos({ q: debouncedQ, tag: filterTag, watchlist_status: filterStatus, sort, page, per_page: 50 }),
+    queryKey: ['videos', debouncedQ, filterTag, filterStatus, filterChannel, sort, page],
+    queryFn: () => fetchVideos({ q: debouncedQ, tag: filterTag, watchlist_status: filterStatus, channel_exact: filterChannel, sort, page, per_page: 50 }),
     keepPreviousData: true,
   })
 
@@ -54,6 +55,15 @@ export default function Library() {
 
   function setFilter(setter) {
     return (val) => { setter(val); setPage(1) }
+  }
+
+  function handleChannelClick(channelName) {
+    setFilterChannel(channelName)
+    setSearch('')
+    setDebouncedQ('')
+    setFilterTag('')
+    setFilterStatus('')
+    setPage(1)
   }
 
   const totalPages = data ? Math.ceil(data.total / 50) : 1
