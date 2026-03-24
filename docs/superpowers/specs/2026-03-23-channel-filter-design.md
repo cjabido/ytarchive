@@ -41,17 +41,25 @@ queryFn: () => fetchVideos({
 }),
 ```
 
-### 3. Clickable channel name in VideoRow
+### 3. Channel click handler (defined in Library, passed to VideoRow)
 
-The channel name span becomes a button. Clicking it:
+Define `handleChannelClick(channelName)` in `Library` as a closure over the state setters:
 - Sets `filterChannel` to the channel name
-- Clears `search`, `debouncedQ`, `filterTag`, `filterStatus`
+- Clears `search` to `''` and immediately resets the debounced value (call `setDebouncedQ('')` — note: the debounce hook delays by 300ms, so the query will briefly use the stale `debouncedQ` before it clears; this is acceptable since the `channel_exact` filter dominates the results)
+- Clears `filterTag` and `filterStatus` to `''`
 - Resets `page` to 1
-- Stops event propagation (so the row click for video detail doesn't fire)
 
-### 4. Active filter chip
+Pass this handler to `VideoRow` as the `onChannelClick` prop.
 
-When `filterChannel` is set, render a chip above the video list:
+### 4. Clickable channel name in VideoRow
+
+`VideoRow` currently accepts `{ video, index, onClick }`. Add `onChannelClick` to the destructured props.
+
+The channel name `<span>` at line 259 becomes a `<button>`. Clicking it calls `onChannelClick(video.channel_name)` with `e.stopPropagation()` so the row's `onClick` (video detail) doesn't fire.
+
+### 5. Active filter chip
+
+When `filterChannel` is set, render a dismissible chip above the video list (before the video list, after the filters row):
 
 ```
 [Showing videos from Channel Name ✕]
@@ -61,9 +69,9 @@ Clicking ✕ clears `filterChannel`.
 
 Styled as a pill with `bg-accent-sky-dim text-accent-sky` to match the Library's color scheme.
 
-### 5. Pass channel click handler to VideoRow
+### 6. Backend param coexistence
 
-VideoRow receives an `onChannelClick` prop. The channel name element calls `onChannelClick(video.channel_name)` with `e.stopPropagation()`.
+The existing `channel` (fuzzy) param is not exposed in the UI currently. If both `channel` and `channel_exact` are sent, both conditions apply (AND). This is acceptable — in practice only `channel_exact` will be sent from the UI.
 
 ## What doesn't change
 
