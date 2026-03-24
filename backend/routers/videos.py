@@ -22,6 +22,7 @@ router = APIRouter()
 async def list_videos(
     q: Optional[str] = None,
     channel: Optional[str] = None,
+    channel_exact: Optional[str] = None,
     tag: Optional[str] = None,
     watchlist_status: Optional[str] = None,
     has_transcript: Optional[bool] = None,
@@ -42,6 +43,9 @@ async def list_videos(
     if channel:
         conditions.append("c.channel_name LIKE ?")
         params.append(f"%{channel}%")
+    if channel_exact:
+        conditions.append("c.channel_name = ?")
+        params.append(channel_exact)
     if tag:
         conditions.append("""
             v.video_id IN (
