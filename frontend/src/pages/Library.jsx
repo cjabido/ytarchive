@@ -155,6 +155,21 @@ export default function Library() {
           </select>
         </div>
 
+        {/* Channel filter chip */}
+        {filterChannel && (
+          <div className="flex items-center gap-2 animate-fade-in-up">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent-sky-dim text-accent-sky text-xs font-medium">
+              Showing videos from {filterChannel}
+              <button
+                onClick={() => setFilterChannel('')}
+                className="hover:text-text-primary transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </span>
+          </div>
+        )}
+
         {/* Video list */}
         {isLoading ? (
           <div className="space-y-2">
