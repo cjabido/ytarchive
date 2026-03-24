@@ -180,6 +180,7 @@ export default function Library() {
                 video={v}
                 index={i}
                 onClick={() => setSelectedVideoId(v.video_id)}
+                onChannelClick={handleChannelClick}
               />
             ))}
           </div>
@@ -247,7 +248,7 @@ function VideoThumb({ videoId, channelName }) {
   )
 }
 
-function VideoRow({ video, index, onClick }) {
+function VideoRow({ video, index, onClick, onChannelClick }) {
   return (
     <div
       onClick={onClick}
@@ -266,7 +267,12 @@ function VideoRow({ video, index, onClick }) {
           {video.video_title}
         </p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          <span className="text-xs text-text-muted truncate">{video.channel_name}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onChannelClick(video.channel_name) }}
+            className="text-xs text-text-muted truncate hover:text-accent-sky transition-colors cursor-pointer"
+          >
+            {video.channel_name}
+          </button>
           {video.last_watched && (
             <span className="text-xs font-mono text-text-muted tabular-nums shrink-0">
               {fmt(video.last_watched)}
