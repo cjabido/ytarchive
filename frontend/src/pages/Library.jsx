@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, BookOpen, ChevronLeft, ChevronRight, Eye, RefreshCw, FileText, X } from 'lucide-react'
+import { Search, BookOpen, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, RefreshCw, FileText, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { fetchVideos, fetchTags } from '../api.js'
 import TagBadge from '../components/TagBadge.jsx'
@@ -203,29 +203,69 @@ export default function Library() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                bg-surface-1 border border-border-dim text-text-secondary
+                hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed
+                transition-all duration-150 cursor-pointer"
+              title="First page"
+            >
+              <ChevronsLeft className="w-3.5 h-3.5" />
+            </button>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
                 bg-surface-1 border border-border-dim text-text-secondary
                 hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed
                 transition-all duration-150 cursor-pointer"
+              title="Previous page"
             >
-              <ChevronLeft className="w-3.5 h-3.5" /> Prev
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
-            <span className="text-xs text-text-muted font-mono tabular-nums">
-              {page} / {totalPages.toLocaleString()}
-            </span>
+            <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono tabular-nums">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={page}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '')
+                  if (val === '') { setPage(''); return }
+                  const num = Math.max(1, Math.min(totalPages, parseInt(val, 10)))
+                  setPage(num)
+                }}
+                onBlur={() => { if (page === '' || isNaN(page)) setPage(1) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }}
+                className="w-12 text-center py-1 rounded-md bg-surface-1 border border-border-dim
+                  text-xs font-mono text-text-primary focus:outline-none focus:border-accent-sky/40
+                  transition-colors"
+              />
+              <span>/ {totalPages.toLocaleString()}</span>
+            </div>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
                 bg-surface-1 border border-border-dim text-text-secondary
                 hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed
                 transition-all duration-150 cursor-pointer"
+              title="Next page"
             >
-              Next <ChevronRight className="w-3.5 h-3.5" />
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page === totalPages}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                bg-surface-1 border border-border-dim text-text-secondary
+                hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed
+                transition-all duration-150 cursor-pointer"
+              title="Last page"
+            >
+              <ChevronsRight className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
