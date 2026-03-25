@@ -1,0 +1,5 @@
+# Required by fetch_transcripts.py
+youtube-transcript-api
+
+# Required by import_ytdlp_history.py
+aiohttp

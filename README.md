@@ -81,7 +81,7 @@ Open `http://localhost:8000` in your browser.
 
 ## Scripts
 
-Five standalone Python utilities in `scripts/`. No backend required.
+Six standalone Python utilities in `scripts/`. No backend required.
 
 ### `clean_youtube_history.py`
 
@@ -152,16 +152,57 @@ python3 scripts/query_db.py export output.csv        # CSV export
 python3 scripts/query_db.py --help
 ```
 
+### `import_ytdlp_history.py`
+
+Alternative importer that reads a yt-dlp flat-playlist JSONL dump instead of Google Takeout HTML. Enriches entries with channel info via YouTube's oEmbed API (no API key required).
+
+**Requires:** `aiohttp` (`pip install aiohttp`)
+
+```bash
+# First, dump your watch history with yt-dlp
+yt-dlp --cookies-from-browser safari --flat-playlist --no-simulate \
+    --playlist-end 200 --dump-json "https://www.youtube.com/feed/history" \
+    > history.jsonl
+
+# Import into the database
+python3 scripts/import_ytdlp_history.py history.jsonl -d youtube_history.db
+
+# Skip oEmbed enrichment (faster, but may lack channel info)
+python3 scripts/import_ytdlp_history.py history.jsonl --no-enrich
+
+python3 scripts/import_ytdlp_history.py --help
+```
+
+Uses async HTTP with 10 concurrent oEmbed requests. Deduplicates on `(video_id, watched_at)`.
+
 ### `fetch_transcripts.py`
 
 Background script to bulk-fetch transcripts for videos already in the database.
 
+**Requires:** `youtube-transcript-api` (`pip install youtube-transcript-api`)
+
 ```bash
-python3 scripts/fetch_transcripts.py
-python3 scripts/fetch_transcripts.py --db /path/to/my.db
+# Fetch transcripts for all videos without one
+python3 scripts/fetch_transcripts.py -d youtube_history.db fetch
+
+# Limit to 50 videos, with 2s delay between requests
+python3 scripts/fetch_transcripts.py fetch -n 50 --delay 2
+
+# Search transcript content
+python3 scripts/fetch_transcripts.py search "neural network"
+
+# Export a single transcript to file
+python3 scripts/fetch_transcripts.py export dQw4w9WgXcQ transcript.txt
+
+# Show transcript coverage stats
+python3 scripts/fetch_transcripts.py stats
+
+python3 scripts/fetch_transcripts.py --help
 ```
 
-Stores transcripts with language codes. Handles API errors gracefully. The backend API can also trigger individual transcript fetches on demand.
+Prefers manual captions over auto-generated. Stores transcripts with language codes. Includes built-in rate limiting to avoid YouTube bans.
+
+> **Warning:** Don't fetch transcripts for large batches — YouTube may rate-limit or ban your IP.
 
 ---
 
@@ -259,6 +300,7 @@ Exposes YTArchive as tools for Claude Code agents via the Model Context Protocol
 
 | Tool | Description |
 |------|-------------|
+| `ytarchive_create_tag` | Create a new tag with name and color |
 | `ytarchive_list_tags` | List all tags with video counts |
 | `ytarchive_list_videos` | Search/filter videos with pagination |
 | `ytarchive_get_video_details` | Full video record including transcript |
@@ -292,10 +334,11 @@ The MCP server requires the FastAPI backend to be running at `http://localhost:8
 ### Example agent workflow
 
 ```
-1. ytarchive_list_tags()              → get tag IDs
-2. ytarchive_list_videos(q="python")  → find untagged videos
-3. ytarchive_get_video_details(id)    → read transcript for context
-4. ytarchive_set_video_tags(id, [3])  → apply "learning" tag
+1. ytarchive_list_tags()              → get existing tag IDs
+2. ytarchive_create_tag("tutorials")  → create a new tag if needed
+3. ytarchive_list_videos(q="python")  → find untagged videos
+4. ytarchive_get_video_details(id)    → read transcript for context
+5. ytarchive_set_video_tags(id, [3])  → apply "learning" tag
 ```
 
 ---
@@ -341,7 +384,7 @@ Full API reference at [API.md](API.md). Interactive docs at `http://localhost:80
 
 ## Requirements
 
-**Scripts:** Python 3.6+, no external dependencies
+**Scripts:** Python 3.6+ (3.10+ for `import_ytdlp_history.py`). Some scripts have optional dependencies — install with `pip install -r scripts/requirements.txt`
 
 **Backend:**
 - Python 3.11+
