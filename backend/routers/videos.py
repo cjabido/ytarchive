@@ -98,8 +98,8 @@ async def list_videos(
             v.video_id,
             v.video_title,
             v.video_url,
-            c.channel_name,
-            c.channel_url,
+            MAX(c.channel_name) as channel_name,
+            MAX(c.channel_url) as channel_url,
             MAX(v.watched_at) as last_watched,
             COUNT(DISTINCT v.id) as watch_count,
             w.status as watchlist_status,
@@ -156,6 +156,7 @@ async def get_video(video_id: str, db: aiosqlite.Connection = Depends(get_db)):
         FROM videos v
         LEFT JOIN channels c ON v.channel_id = c.channel_id
         WHERE v.video_id = ?
+        ORDER BY v.channel_id IS NOT NULL DESC
         LIMIT 1
     """, [video_id]) as cursor:
         row = await cursor.fetchone()
