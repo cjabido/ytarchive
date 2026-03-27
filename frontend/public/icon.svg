@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background with rounded corners -->
+  <rect width="512" height="512" rx="112" fill="#0f0f0f"/>
+
+  <!-- TV screen rectangle (scaled from 24px grid to ~360px centered) -->
+  <!-- Original: rect from (2,7) to (22,17) in 24px grid, with 2px radius corners -->
+  <!-- Scale factor: 360/20 = 18, offset: (76, 152) -->
+  <rect x="76" y="164" width="360" height="180" rx="18" fill="none" stroke="#ffffff" stroke-width="22" stroke-linejoin="round"/>
+
+  <!-- TV stand bar: original "M7 21h10" in 24px grid -->
+  <!-- Scaled: x1=(7-2)*18+76=166, x2=(17-2)*18+76=346, y=(21-7)*18+164=416 -->
+  <line x1="166" y1="388" x2="346" y2="388" stroke="#ffffff" stroke-width="22" stroke-linecap="round"/>
+
+  <!-- Play triangle: original "m10 9 5 3-5 3z" in 24px grid -->
+  <!-- Points: (10,9),(15,12),(10,15) scaled: x=(v-2)*18+76, y=(v-7)*18+164 -->
+  <!-- (10-2)*18+76=220, (9-7)*18+164=200 -->
+  <!-- (15-2)*18+76=310, (12-7)*18+164=254 -->
+  <!-- (10-2)*18+76=220, (15-7)*18+164=308 -->
+  <polygon points="210,196 318,254 210,312" fill="#ffffff"/>
+</svg>
